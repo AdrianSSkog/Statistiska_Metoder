@@ -16,24 +16,57 @@ def train_test_split(data, train=80, test=20):
 
     return trainingData, testData
 
-def make_numeric(data):
-    for col in data.columns:
-        if data[col].dtype == object:
-            try:
-                data[col] = data[col].astype(float)
-            except:
-                pass
-    return data
+class OneHotEncoder():
+    def __init__(self, drop_first=True):
+        self.drop_first = drop_first
+        self.categories = {}
+        self.fitted = False
+    
+    def fit(self, data):
+        X = np.asarray(data)
 
+        for j in range(X.shape[1]):
+            col = X[:,j]
+            if isinstance(col[0], (str, np.str_)):
+                self.categories[j] = np.unique(col)
+        self.fitted = True
+        return self
    
+    def transform(self, data):
+        if self.fitted == False:
+            raise ValueError("Encoder has not been fitted")
+        
+        X = np.asarray(data)
+        n = X.shape[0]
+        output_columns = []
+
+        for j in range(X.shape[1]):
+            col = X[:,j]
+            if j in self.categories:
+                cats = self.categories[j]
+                one_hot = np.zeros((n, len(cats) - self.drop_first))
+
+                for i in range(n):
+                    if col[i] not in cats:
+                        raise ValueError(f"Category {col[i]} is not recognised")
+                    index = np.where(cats == col[i])[0][0]
+                    if index >= self.drop_first:
+                        one_hot[i, index - self.drop_first] = 1
+                output_columns.append(one_hot)
+            else:
+                output_columns.append(col.reshape(-1,1))
+        return np.hstack(output_columns)
+
+    def fit_transform(self, data):
+        return self.fit(data).transform(data)
 
 class LinearRegression():
     def __init__(self, confidence_level= 0.95):
         self.confidence_level = confidence_level
-        self.b = None #coefficient
+        self.b = None #coefficients
         self.intercept = None
         self.d = None #number of features
-        self.n = None #number of samples
+        self.n = None 
         self.SSE = None 
         self.SSR = None
         self.Syy = None
@@ -78,7 +111,7 @@ class LinearRegression():
         self.adjRsqr = 1 - ((1-self.Rsqr)*((self.n - 1) /DF))
         self.std = np.sqrt(self.sigma2)
 
-        cov_beta = self.sigma2 * (np.linalg.inv(X_Pinv @ X_Pinv.T))
+        cov_beta = self.sigma2 * (X_Pinv @ X_Pinv.T)
         self.se = np.sqrt(np.diag(cov_beta))
 
         return self.b, self.intercept
@@ -96,7 +129,7 @@ class LinearRegression():
     
     def rmse(self, X=None, Y=None):
         if X is None or Y is None:
-            return np.sqrt(self.SSE / self.n)
+            return np.sqrt(self.SSE / (self.n - self.d - 1))
         else:
             Y_pred = self.predict(X)
             return np.sqrt(np.mean((Y - Y_pred)**2))
