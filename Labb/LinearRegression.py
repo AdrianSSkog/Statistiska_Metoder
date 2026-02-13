@@ -21,11 +21,11 @@ class OneHotEncoder():
         self.drop_first = drop_first
         self.categories = {}
         self.fitted = False
-        self.feature_names_ = []
+        self.feature_names = []
     
     def fit(self, data, column_names=None):
         X = np.asarray(data)
-        self.feature_names_ = []
+        self.feature_names = []
 
         if column_names is None:
             column_names = [f"{j}" for j in range(X.shape[1])]
@@ -38,9 +38,9 @@ class OneHotEncoder():
                 self.categories[j] = np.unique(col)
 
                 for k in range(start, len(cats)):
-                    self.feature_names_.append(f"{column_names[j]}_{cats[k]}")
+                    self.feature_names.append(f"{column_names[j]}_{cats[k]}")
             else:
-                self.feature_names_.append(column_names[j])
+                self.feature_names.append(column_names[j])
         self.fitted = True
         return self
    
@@ -214,7 +214,7 @@ class LinearRegression():
         return CI_lower, CI_upper
 
 
-    def summary(self, feature_names=None, target_name="target variable", testX=None, testy=None):
+    def summary(self, feature_names=None, target_name="target variable", testX=None, testy=None, CL= None):
         if self.b is None:
             raise ValueError("Model has not been fitted")
         
@@ -228,20 +228,24 @@ class LinearRegression():
         print(f"Number of features:         {self.d}")
         print()
         print(f"variance:                   {self.sigma2:.4f}")
-        print(f"Standard deviation:         {self.std:.4f}")
         print(f"R square:                   {self.Rsqr:.4f}")
         print(f"Adjusted R square:          {self.adjRsqr:.4f}")
         if testX is None or testy is None:
             print(f"train RMSE:                 {self.rmse():.4f}")
         else: 
+            print(f"train RMSE:                 {self.rmse():.4f}")
             print(f"test RMSE:                  {self.rmse(testX, testy):.4f}")
         f_stat, fstat_p = self.F_test()
         print(f"F-statistic:                {f_stat:.4f}")
         print(f"p value (F-statistic):      {fstat_p:.4f}")
         print()
-        print(f"Confidence level:   {self.confidence_level:.1%}")
         
-        CI_L, CI_U = self.confidence_intervals()
+        if CL is None:
+            print(f"Confidence level:   {self.confidence_level:.1%}")
+            CI_L, CI_U = self.confidence_intervals()
+        else:
+            print(f"Confidence level:   {CL:.1%}")
+            CI_L, CI_U = self.confidence_intervals(confidence_level=CL)
         t, p, sig = self.t_test()
         print("Feature                 CI lower   coefficient   CI upper  t-value   p-value   significant")
         print("="*90)
@@ -249,12 +253,17 @@ class LinearRegression():
             sign = "Yes" if sig[i]==True else "No"
             print(f"{feat:<26}{CI_L[i]:>10.2f}{self.b[i]:>10.2f}{CI_U[i]:>10.2f}{t[i]:>10.2f}{p[i]:>10.2f}{sign:>10}")
 
-        print()
+    def corr_matrix(self, data= None, column_names=None):
+        if column_names is None:
+            column_names = [f"feature {i+1}" for i in range(self.d)]
         print("Pearson correlation:")
         print()
-        corr = self.correlation()
-        columnNames = feature_names + [target_name]
-        for i, feat in enumerate(columnNames):
+        if data is None:
+            corr = self.correlation()
+        else:
+            corr = self.correlation(data)
+
+        for i, feat in enumerate(column_names):
             print(f"{feat:<26} {[f"{x:>5.2f}"for x in corr[i,:]]}")
 
 
